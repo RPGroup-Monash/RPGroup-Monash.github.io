@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ThermoCalc — Perfect Ideal Gas (MMA2003)</title>
+<style>
+:root { --ink:#1a2733; --muted:#5c6b7a; --line:#d7dee6; --accent:#0b6; --bg:#f7f9fb; }
+* { box-sizing:border-box; }
+body { margin:0; font:15px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; color:var(--ink); background:var(--bg); }
+header { padding:14px 20px; border-bottom:1px solid var(--line); background:#fff; }
+header h1 { margin:0; font-size:18px; }
+header p { margin:3px 0 0; color:var(--muted); font-size:13px; }
+main { display:grid; grid-template-columns:420px 1fr; gap:16px; padding:16px 20px; }
+@media (max-width:900px){ main { grid-template-columns:1fr; } }
+.panel { background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px; }
+label { font-size:13px; color:var(--muted); display:block; margin:0 0 4px; }
+select { padding:6px 8px; border:1px solid var(--line); border-radius:6px; width:100%; font-family:inherit; }
+textarea { width:100%; height:300px; margin-top:10px; padding:10px; border:1px solid var(--line); border-radius:6px;
+  font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; resize:vertical; }
+.row { display:flex; gap:10px; align-items:center; margin-top:10px; }
+button.solve { background:var(--accent); color:#fff; border:0; padding:9px 18px; border-radius:6px; font-size:15px; cursor:pointer; }
+#status { font-size:12px; color:var(--muted); }
+pre#report { background:#0f1720; color:#d7e2ec; border-radius:8px; padding:12px; overflow:auto;
+  font:12px/1.4 ui-monospace,Menlo,Consolas,monospace; margin:0; max-height:360px; }
+.plots { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media (max-width:1200px){ .plots { grid-template-columns:1fr; } }
+.plotcard h3 { margin:0 0 6px; font-size:14px; }
+.toggles { font-size:12px; color:var(--muted); margin:2px 0 6px; }
+.toggles label { display:inline; margin-right:12px; color:var(--muted); }
+svg.plot { width:100%; height:auto; background:#fff; border:1px solid var(--line); border-radius:6px; }
+.note { font-size:12px; color:var(--muted); margin-top:8px; }
+.phead { display:flex; justify-content:space-between; align-items:center; margin-top:10px; }
+.phead label, .phead h3 { margin:0; }
+.plotcard .phead { margin-top:0; margin-bottom:6px; }
+.copybtn { font-family:inherit; font-size:12px; background:#eef2f6; color:#33475b; border:1px solid var(--line);
+  border-radius:5px; padding:3px 10px; cursor:pointer; }
+.copybtn:hover { background:#e2e8ee; }
+.copybtn.ok { background:var(--accent); color:#fff; border-color:var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>ThermoCalc — Perfect Ideal Gas (MMA2003)</h1>
+  <p>Pick an example or edit the problem, then Solve. Runs entirely in your browser... no install, works offline.</p>
+</header>
+<main>
+  <section class="panel">
+    <label for="example">Example</label>
+    <select id="example"><option value="">— choose an example —</option></select>
+    <div class="phead"><label for="toml">Problem (TOML)</label><button class="copybtn" id="copy-toml" type="button">Copy</button></div>
+    <textarea id="toml" spellcheck="false"></textarea>
+    <div class="row">
+      <button id="solve" class="solve">Solve</button>
+      <span id="status">Ready.</span>
+    </div>
+  </section>
+  <section style="display:flex; flex-direction:column; gap:16px;">
+    <div class="panel">
+      <div class="plots">
+        <div class="plotcard">
+          <div class="phead"><h3>P–v diagram</h3><button class="copybtn" id="copy-pv" type="button">Copy PNG</button></div>
+          <div class="toggles">
+            <label><input type="checkbox" id="pv-logx"> log v</label>
+            <label><input type="checkbox" id="pv-logy"> log p</label>
+          </div>
+          <svg id="pvPlot" class="plot"></svg>
+        </div>
+        <div class="plotcard">
+          <div class="phead"><h3>T–s diagram</h3><button class="copybtn" id="copy-ts" type="button">Copy PNG</button></div>
+          <div class="toggles">
+            <label><input type="checkbox" id="ts-logx"> log s</label>
+            <label><input type="checkbox" id="ts-logy"> log T</label>
+          </div>
+          <svg id="tsPlot" class="plot"></svg>
+        </div>
+      </div>
+      <div class="note">Entropy is referenced to 25 °C, 100 kPa, so s can be negative...
+        a log axis on s then hides points. Log scale on p, v and T is always safe.</div>
+    </div>
+    <div class="panel">
+      <div class="phead"><label>Report</label><button class="copybtn" id="copy-report" type="button">Copy</button></div>
+      <pre id="report">Solve a problem to see the full worked report here.</pre>
+    </div>
+  </section>
+</main>
+
+<script>
+/* ===== embedded examples ===== */
+const EXAMPLES = {
+  "state": "# Just fix two states. No processes -- shows the Stage-1 property solve.\nmode = \"closed\"\ngas  = \"air\"\n\n[[state]]\n  name = \"1\"\n  T = 300        # K\n  p = 100        # kPa\n  m = 2.0        # kg\n\n[[state]]\n  name = \"2\"\n  p = 800        # kPa\n  s = \"1.s\"      # same entropy as state 1  ->  isentropic compression\n",
+  "two_process": "# Two-process pneumatic example (same shape as W2 worked example WE4):\n# air compressed isothermally, then cooled at constant volume.\nmode = \"closed\"\ngas  = \"air\"\n\n[[state]]\n  name = \"a\"\n  T = 500\n  p = 200\n  m = 1.0\n\n[[state]]\n  name = \"b\"\n  T = \"a.T\"        # iso-T compression\n  p = 500\n  m = 1.0\n\n[[state]]\n  name = \"c\"\n  p = 300\n  v = \"b.v\"        # constant volume = state b's volume\n  m = 1.0\n\n[[process]]\n  name  = \"1 iso-T\"\n  begin = \"a\"\n  finish = \"b\"\n\n[[process]]\n  name  = \"2 iso-v\"\n  begin = \"b\"\n  finish = \"c\"\n",
+  "otto": "# Otto cycle, compression ratio r = 8, air-standard.\n# Expect eta_th = 1 - r^-(k-1) = 0.5645.\nmode  = \"closed\"\ngas   = \"air\"\ncycle = true\nname  = \"Otto r=8\"\n\n[[state]]\n  name = \"1\"          # BDC\n  T = 300\n  p = 100\n  m = 1.0\n\n[[state]]\n  name = \"2\"          # after isentropic compression (v2 = v1 / 8)\n  v = 0.107625        # = (R*300/100)/8\n  s = \"1.s\"\n  m = 1.0\n\n[[state]]\n  name = \"3\"          # after constant-volume heat addition\n  T = 1800\n  v = \"2.v\"\n  m = 1.0\n\n[[state]]\n  name = \"4\"          # after isentropic expansion back to v1\n  v = \"1.v\"\n  s = \"3.s\"\n  m = 1.0\n\n[[process]]\n  name = \"1-2 compress\"\n  begin = \"1\"\n  finish = \"2\"\n\n[[process]]\n  name = \"2-3 heat in\"\n  begin = \"2\"\n  finish = \"3\"\n\n[[process]]\n  name = \"3-4 expand\"\n  begin = \"3\"\n  finish = \"4\"\n\n[[process]]\n  name = \"4-1 heat out\"\n  begin = \"4\"\n  finish = \"1\"\n",
+  "turbine": "# Adiabatic (isentropic, ideal) air turbine: 1400 K, 1200 kPa -> 100 kPa.\nmode = \"open\"\ngas  = \"air\"\n\n[[state]]\n  name = \"in\"\n  T = 1400\n  p = 1200\n\n[[state]]\n  name = \"out\"\n  p = 100\n  s = \"in.s\"        # reversible-adiabatic exit (same entropy)\n\n[[device]]\n  name  = \"turbine\"\n  inlet = \"in\"\n  exit  = \"out\"\n  Qdot  = 0.0        # adiabatic -> solver returns Wdot\n  mdot  = 3.0        # kg/s\n",
+  "throttle": "# Throttle valve. For a perfect/ideal gas a throttle is isenthalpic AND\n# isothermal (real cooling would be Joule-Thomson, a real-gas effect, absent here).\nmode = \"open\"\ngas  = \"air\"\n\n[[state]]\n  name = \"in\"\n  T = 320\n  p = 800\n\n[[state]]\n  name = \"out\"\n  p = 120\n  h = \"in.h\"         # same enthalpy across the valve\n\n[[device]]\n  name  = \"throttle\"\n  inlet = \"in\"\n  exit  = \"out\"\n  Wdot  = 0.0\n  Qdot  = 0.0\n  Tb    = 320        # for entropy generation (expect > 0)\n"
+};
+</script>
+<script>
+/* ===== engine.js (validated against the Python oracle, 1e-9) ===== */
+/* engine.js -- Perfect Ideal Gas (PIG) thermodynamics engine, JavaScript port.
+ *
+ * A faithful port of the canonical Python in ../pig_calc/ (pig_core, pig_closed,
+ * pig_open, pig_run). The equations are the single source of truth in Python;
+ * this file is validated against it by ../thermocalc_src/crosscheck.js.
+ *
+ * It is a REAL solver: give any two independent intensive properties and it
+ * computes a full state; it applies the closed- and open-system balances for any
+ * problem, not a lookup of pre-solved cases. Pure algebra + logs, no libraries.
+ *
+ * Runs unchanged in the browser and in Node (module.exports at the bottom).
+ *
+ * UNITS: K, kPa, m^3/kg, kJ/kg, kJ/(kg.K).  (kPa*m^3/kg = kJ/kg exactly.)
+ */
+"use strict";
+
+const R_UNIVERSAL = 8.31446;   // kJ/(kmol.K)
+const G_STD = 9.80665;         // m/s^2
+const TREF = 298.15;           // K
+const PREF = 100.0;            // kPa
+const ln = Math.log, exp = Math.exp;
+
+function isclose(a, b, rel_tol = 1e-9, abs_tol = 0.0) {
+  return Math.abs(a - b) <= Math.max(rel_tol * Math.max(Math.abs(a), Math.abs(b)), abs_tol);
+}
+
+/* ---- material model ---------------------------------------------------- */
+class PerfectGas {
+  constructor(name, R, cp, cv, M = null) {
+    this.name = name; this.R = R; this.cp = cp; this.cv = cv; this.M = M;
+  }
+  get gamma() { return this.cp / this.cv; }
+  get k() { return this.gamma; }
+  static from_R_cp(name, R, cp, M = null) { return new PerfectGas(name, R, cp, cp - R, M); }
+  static from_M_gamma(name, M, gamma) {
+    const R = R_UNIVERSAL / M, cv = R / (gamma - 1.0), cp = gamma * cv;
+    return new PerfectGas(name, R, cp, cv, M);
+  }
+  toString() {
+    return `PerfectGas(${this.name}: R=${this.R.toFixed(4)}, cp=${this.cp.toFixed(4)}, ` +
+           `cv=${this.cv.toFixed(4)} kJ/kg.K, gamma=${this.gamma.toFixed(4)})`;
+  }
+}
+
+// Cengel Table A-2(a) at ~300 K, identical to the Python GASES library.
+const GASES = {
+  air:      PerfectGas.from_R_cp("air", 0.2870, 1.005, 28.97),
+  N2:       PerfectGas.from_R_cp("N2", 0.2968, 1.039, 28.013),
+  O2:       PerfectGas.from_R_cp("O2", 0.2598, 0.918, 31.999),
+  CO2:      PerfectGas.from_R_cp("CO2", 0.1889, 0.846, 44.01),
+  CO:       PerfectGas.from_R_cp("CO", 0.2968, 1.040, 28.011),
+  H2:       PerfectGas.from_R_cp("H2", 4.1240, 14.307, 2.016),
+  He:       PerfectGas.from_R_cp("He", 2.0769, 5.1926, 4.003),
+  Ar:       PerfectGas.from_R_cp("Ar", 0.2081, 0.5203, 39.948),
+  CH4:      PerfectGas.from_R_cp("CH4", 0.5182, 2.2537, 16.043),
+  steam_ig: PerfectGas.from_R_cp("steam_ig", 0.4615, 1.8723, 18.015),
+};
+
+function gas(name) {
+  const key = String(name).trim();
+  if (key in GASES) return GASES[key];
+  for (const k in GASES) if (k.toLowerCase() === key.toLowerCase()) return GASES[k];
+  throw new Error(`Unknown gas '${name}'. Known: ${Object.keys(GASES).join(", ")}.`);
+}
+
+/* ---- property relations ------------------------------------------------ */
+const u_of_T = (g, T) => g.cv * (T - TREF);
+const T_of_u = (g, u) => TREF + u / g.cv;
+const h_of_T = (g, T) => u_of_T(g, T) + g.R * T;
+const T_of_h = (g, h) => (h + g.cv * TREF) / g.cp;
+const s_of_Tp = (g, T, p) => g.cp * ln(T / TREF) - g.R * ln(p / PREF);
+
+/* ---- State ------------------------------------------------------------- */
+class State {
+  constructor(g, props = {}) {
+    this.gas = g;
+    for (const key of ["T", "p", "v", "rho", "u", "h", "s", "m", "Vol", "Vel", "z"]) {
+      this[key] = (props[key] === undefined) ? null : props[key];
+    }
+    this.label = props.label || "";
+    this.U = this.H = this.S = null;
+    this._solve();
+  }
+
+  _solve() {
+    const g = this.gas;
+    if (this.v === null && this.rho !== null) this.v = 1.0 / this.rho;
+
+    let T = this.T;
+    if (T === null && this.u !== null) T = T_of_u(g, this.u);
+    if (T === null && this.h !== null) T = T_of_h(g, this.h);
+    let p = this.p;
+
+    if (T !== null) {
+      if (p === null) {
+        if (this.v !== null) p = g.R * T / this.v;
+        else if (this.s !== null) p = PREF * exp((g.cp * ln(T / TREF) - this.s) / g.R);
+        else throw new Error(`State '${this.label}': have a temperature but no second ` +
+                             `independent property (need one of p, v, rho, s).`);
+      }
+    } else {
+      if (p !== null && this.v !== null) T = p * this.v / g.R;
+      else if (p !== null && this.s !== null) T = TREF * exp((this.s + g.R * ln(p / PREF)) / g.cp);
+      else if (this.v !== null && this.s !== null) {
+        const lnT = (this.s + g.cp * ln(TREF) + g.R * ln(g.R / (this.v * PREF))) / g.cv;
+        T = exp(lnT); p = g.R * T / this.v;
+      } else throw new Error(`State '${this.label}': not enough independent properties. ` +
+                             `Supply any two of T, p, v, rho, u, h, s.`);
+    }
+
+    this.T = T; this.p = p;
+    this.v = g.R * T / p; this.rho = 1.0 / this.v;
+    this.u = u_of_T(g, T); this.h = this.u + g.R * T; this.s = s_of_Tp(g, T, p);
+
+    if (this.m === null && this.Vol !== null) this.m = this.Vol / this.v;
+    if (this.Vol === null && this.m !== null) this.Vol = this.m * this.v;
+    if (this.m !== null) { this.U = this.m * this.u; this.H = this.m * this.h; this.S = this.m * this.s; }
+  }
+
+  get ke() { return this.Vel === null ? 0.0 : 0.5 * this.Vel * this.Vel / 1000.0; }
+  get pe() { return this.z === null ? 0.0 : G_STD * this.z / 1000.0; }
+  get j() { return this.h + this.ke + this.pe; }
+
+  report() {
+    const g = this.gas, tag = this.label ? ` [${this.label}]` : "";
+    const L = [`State${tag}  (${g.name}, PG model)`,
+      `  T   = ${f(this.T, 10, 4)} K   (${(this.T - 273.15).toFixed(4)} C)`,
+      `  p   = ${f(this.p, 10, 4)} kPa`,
+      `  v   = ${f(this.v, 10, 6)} m^3/kg     rho = ${this.rho.toFixed(5)} kg/m^3`,
+      `  u   = ${f(this.u, 10, 4)} kJ/kg`,
+      `  h   = ${f(this.h, 10, 4)} kJ/kg`,
+      `  s   = ${f(this.s, 10, 5)} kJ/kg.K`];
+    if (this.Vel !== null) L.push(`  Vel = ${f(this.Vel, 10, 4)} m/s      ke = ${this.ke.toFixed(4)} kJ/kg`);
+    if (this.z !== null) L.push(`  z   = ${f(this.z, 10, 4)} m        pe = ${this.pe.toFixed(4)} kJ/kg`);
+    if (this.m !== null) {
+      L.push(`  m   = ${f(this.m, 10, 4)} kg       Vol = ${this.Vol.toFixed(6)} m^3`);
+      L.push(`  U   = ${f(this.U, 10, 4)} kJ        H = ${this.H.toFixed(4)} kJ`);
+      L.push(`  S   = ${f(this.S, 10, 5)} kJ/K`);
+    }
+    return L.join("\n");
+  }
+}
+
+/* ---- closed-system Process + Cycle ------------------------------------ */
+class Process {
+  constructor(begin, finish, opts = {}) {
+    this.begin = begin; this.finish = finish;
+    this.kind = opts.kind === undefined ? null : opts.kind;
+    this.n = opts.n === undefined ? null : opts.n;
+    this.W = opts.W === undefined ? null : opts.W;
+    this.Q = opts.Q === undefined ? null : opts.Q;
+    this.Tb = opts.Tb === undefined ? null : opts.Tb;
+    this.name = opts.name || "";
+    this.m = this.dU = this.dH = this.dS = null; this.S_gen = null;
+    this._solve();
+  }
+
+  _solve() {
+    const b = this.begin, f = this.finish, g = b.gas;
+    let m = b.m !== null ? b.m : f.m;
+    if (m === null) m = 1.0;
+    this.m = m;
+
+    this.dU = m * (f.u - b.u);
+    this.dH = m * (f.h - b.h);
+    this.dS = m * (f.s - b.s);
+    const dKE = m * (f.ke - b.ke);
+    const dPE = m * (f.pe - b.pe);
+
+    const kind = this.kind || this._detect_kind();
+    this.kind = kind;
+
+    let W;
+    if (this.W !== null) W = this.W;
+    else if (this.Q !== null) W = this.Q - (this.dU + dKE + dPE);
+    else W = this._path_work(kind);
+    this.W = W;
+
+    const Q_first = this.dU + dKE + dPE + W;
+    if (this.Q === null) this.Q = Q_first;
+    if (this.Tb !== null) this.S_gen = this.dS - this.Q / this.Tb;
+  }
+
+  _detect_kind() {
+    const b = this.begin, f = this.finish;
+    if (isclose(b.v, f.v)) return "isochoric";
+    if (isclose(b.p, f.p)) return "isobaric";
+    if (isclose(b.T, f.T)) return "isothermal";
+    if (isclose(b.s, f.s)) return "isentropic";
+    return null;
+  }
+
+  _path_work(kind) {
+    const b = this.begin, f = this.finish, g = b.gas, m = this.m;
+    if (kind === "isochoric") return 0.0;
+    if (kind === "isobaric") return m * b.p * (f.v - b.v);
+    if (kind === "isothermal") return m * g.R * b.T * ln(f.v / b.v);
+    if (kind === "isentropic") return m * g.cv * (b.T - f.T);
+    if (kind === "polytropic") {
+      if (this.n === null) throw new Error("polytropic process needs n=...");
+      if (isclose(this.n, 1.0)) return m * g.R * b.T * ln(f.v / b.v);
+      return m * g.R * (b.T - f.T) / (this.n - 1.0);
+    }
+    throw new Error(`Process '${this.name}': cannot determine work. Give kind=..., ` +
+                    `or W=..., or Q=...  (states alone are not enough for a generic path).`);
+  }
+
+  report() {
+    const nm = this.name ? ` ${this.name}` : "";
+    const L = [`Process${nm}:  ${this.begin.label || "?"} -> ${this.finish.label || "?"}   (${this.kind})`,
+      `  W (by system) = ${f(this.W, 12, 4)} kJ` + (this.m ? `   (${(this.W / this.m).toFixed(4)} kJ/kg)` : ""),
+      `  Q (into sys)  = ${f(this.Q, 12, 4)} kJ` + (this.m ? `   (${(this.Q / this.m).toFixed(4)} kJ/kg)` : ""),
+      `  dU            = ${f(this.dU, 12, 4)} kJ`,
+      `  dS            = ${f(this.dS, 12, 5)} kJ/K`];
+    if (this.S_gen !== null) L.push(`  S_gen (Tb=${gfmt(this.Tb)}K) = ${this.S_gen.toFixed(6)} kJ/K`);
+    return L.join("\n");
+  }
+}
+
+class Cycle {
+  constructor(processes, name = "") { this.processes = processes; this.name = name; }
+  get W_net() { return this.processes.reduce((a, p) => a + p.W, 0); }
+  get Q_in() { return this.processes.reduce((a, p) => a + (p.Q > 0 ? p.Q : 0), 0); }
+  get Q_out() { return this.processes.reduce((a, p) => a + (p.Q < 0 ? p.Q : 0), 0); }
+  get dU_sum() { return this.processes.reduce((a, p) => a + p.dU, 0); }
+  get eta_th() { return this.Q_in ? this.W_net / this.Q_in : NaN; }
+  COP_ref() { return this.W_net ? this.Q_in / Math.abs(this.W_net) : NaN; }
+  COP_hp() { return this.W_net ? Math.abs(this.Q_out) / Math.abs(this.W_net) : NaN; }
+
+  report() {
+    const nm = this.name ? ` ${this.name}` : "";
+    const L = [`Cycle${nm}  (${this.processes.length} processes)`];
+    for (const p of this.processes) L.push("  " + p.report().replace(/\n/g, "\n  "));
+    L.push("  " + "-".repeat(50));
+    L.push(`  closure check  sum(dU) = ${expo(this.dU_sum)} kJ  (should be ~0)`);
+    L.push(`  W_net = ${this.W_net.toFixed(4)} kJ`);
+    L.push(`  Q_in  = ${this.Q_in.toFixed(4)} kJ     Q_out = ${this.Q_out.toFixed(4)} kJ`);
+    L.push(`  eta_th = ${this.eta_th.toFixed(4)}     (COP_ref=${this.COP_ref().toFixed(4)}, COP_hp=${this.COP_hp().toFixed(4)})`);
+    return L.join("\n");
+  }
+}
+
+/* ---- open-system SteadyDevice ----------------------------------------- */
+class SteadyDevice {
+  constructor(inlet, exit, opts = {}) {
+    this.inlet = inlet; this.exit = exit;
+    this.mdot = opts.mdot === undefined ? null : opts.mdot;
+    this.Wdot = opts.Wdot === undefined ? null : opts.Wdot;
+    this.Qdot = opts.Qdot === undefined ? null : opts.Qdot;
+    this.Tb = opts.Tb === undefined ? null : opts.Tb;
+    this.name = opts.name || "";
+    this.dh = this.dke = this.dpe = null; this.Sdot_gen = null;
+    this.area_in = this.area_out = null;
+    this._solve();
+  }
+
+  _solve() {
+    const i = this.inlet, e = this.exit;
+    const mdot = this.mdot === null ? 1.0 : this.mdot;
+    this.mdot = mdot;
+    this.dh = e.h - i.h; this.dke = e.ke - i.ke; this.dpe = e.pe - i.pe;
+    const Edot = mdot * (this.dh + this.dke + this.dpe);   // = Qdot - Wdot
+    const nW = this.Wdot === null, nQ = this.Qdot === null;
+    if (nW && nQ) throw new Error(`Device '${this.name}': give one of Wdot/Qdot (often 0.0) ` +
+                                  `so the energy balance can solve for the other.`);
+    if (nW) this.Wdot = this.Qdot - Edot;
+    else if (nQ) this.Qdot = this.Wdot + Edot;
+    if (this.Tb !== null) this.Sdot_gen = mdot * (e.s - i.s) - this.Qdot / this.Tb;
+    if (i.Vel) this.area_in = mdot * i.v / i.Vel;
+    if (e.Vel) this.area_out = mdot * e.v / e.Vel;
+  }
+
+  get w() { return this.Wdot / this.mdot; }
+  get q() { return this.Qdot / this.mdot; }
+  get energy_residual() { return this.Qdot - this.Wdot - this.mdot * (this.dh + this.dke + this.dpe); }
+
+  report() {
+    const nm = this.name ? ` ${this.name}` : "";
+    const L = [`SteadyDevice${nm}:  ${this.inlet.label || "in"} -> ${this.exit.label || "out"}   (mdot = ${gfmt(this.mdot)} kg/s)`,
+      `  Wdot (by CV)  = ${f(this.Wdot, 12, 4)} kW    (w = ${this.w.toFixed(4)} kJ/kg)`,
+      `  Qdot (into CV)= ${f(this.Qdot, 12, 4)} kW    (q = ${this.q.toFixed(4)} kJ/kg)`,
+      `  dh  = ${f(this.dh, 10, 4)} kJ/kg   dke = ${f(this.dke, 8, 4)}   dpe = ${f(this.dpe, 8, 4)} kJ/kg`];
+    if (this.Sdot_gen !== null) L.push(`  Sdot_gen (Tb=${gfmt(this.Tb)}K) = ${this.Sdot_gen.toFixed(6)} kW/K`);
+    if (this.area_in || this.area_out) L.push(`  A_in = ${this.area_in} m^2   A_out = ${this.area_out} m^2`);
+    return L.join("\n");
+  }
+}
+
+/* ---- number formatting helpers (mimic Python %10.4f etc.) ------------- */
+function f(x, width, prec) { return String(x.toFixed(prec)).padStart(width); }
+function gfmt(x) { // like Python %g, good enough for temperatures/mdot in labels
+  if (x === null) return "None";
+  if (Number.isInteger(x)) return String(x);
+  return String(parseFloat(x.toPrecision(6)));
+}
+function expo(x) { return x.toExponential(6); }
+
+/* ---- mini-TOML parser (port of _mini_toml) ---------------------------- */
+function stripInlineComment(s) {
+  let out = "", q = null;
+  for (const ch of s) {
+    if (q) { out += ch; if (ch === q) q = null; }
+    else if (ch === '"' || ch === "'") { q = ch; out += ch; }
+    else if (ch === "#") break;
+    else out += ch;
+  }
+  return out.trim();
+}
+function parseValue(v) {
+  v = v.trim();
+  if ((v[0] === '"' && v.slice(-1) === '"') || (v[0] === "'" && v.slice(-1) === "'")) return v.slice(1, -1);
+  const low = v.toLowerCase();
+  if (low === "true") return true;
+  if (low === "false") return false;
+  if (/^[+-]?\d+$/.test(v)) return parseInt(v, 10);
+  const fl = Number(v);
+  if (!Number.isNaN(fl) && v !== "") return fl;
+  return v;
+}
+function miniToml(text) {
+  const result = {}; let current = result;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = stripInlineComment(raw);
+    if (!line) continue;
+    if (line.startsWith("[[")) {
+      const name = line.slice(2, line.indexOf("]]")).trim();
+      if (!(name in result)) result[name] = [];
+      current = {}; result[name].push(current);
+    } else if (line.startsWith("[")) {
+      const name = line.slice(1, line.indexOf("]")).trim();
+      result[name] = {}; current = result[name];
+    } else if (line.includes("=")) {
+      const idx = line.indexOf("=");
+      current[line.slice(0, idx).trim()] = parseValue(line.slice(idx + 1));
+    } else throw new Error(`Cannot parse TOML line: ${JSON.stringify(raw)}`);
+  }
+  return result;
+}
+
+/* ---- build objects from the parsed doc -------------------------------- */
+const ALLOWED_STATE_KEYS = new Set(["T", "p", "v", "rho", "u", "h", "s", "m", "Vol", "Vel", "z"]);
+const ALLOWED_PROC_KEYS = new Set(["kind", "n", "W", "Q", "Tb", "name"]);
+const ALLOWED_DEV_KEYS = new Set(["mdot", "Wdot", "Qdot", "Tb", "name"]);
+
+function buildGas(doc) {
+  if (doc.gas_def) {
+    const d = doc.gas_def;
+    if ("cp" in d && "R" in d) return PerfectGas.from_R_cp(d.name || "custom", d.R, d.cp, d.M || null);
+    if ("M" in d && "gamma" in d) return PerfectGas.from_M_gamma(d.name || "custom", d.M, d.gamma);
+    throw new Error("[gas_def] needs either (R and cp) or (M and gamma).");
+  }
+  if (!doc.gas) throw new Error('Specify a gas, e.g.  gas = "air"  (or a [gas_def] table).');
+  return gas(doc.gas);
+}
+
+const REF_RE = /^([^.\s]+)\.([A-Za-z_]+)$/;
+function resolveRef(val, states, where) {
+  if (typeof val === "string") {
+    const m = REF_RE.exec(val.trim());
+    if (!m) throw new Error(`${where}: '${val}' is not a number or a reference like "1.s".`);
+    const [, sname, prop] = m;
+    if (!(sname in states)) throw new Error(`${where}: refers to state '${sname}', which is not defined before this point.`);
+    if (!(prop in states[sname]) || typeof states[sname][prop] === "function")
+      throw new Error(`${where}: state '${sname}' has no property '${prop}'.`);
+    return states[sname][prop];
+  }
+  return val;
+}
+function buildStates(g, specs, warnings) {
+  const states = {};
+  specs.forEach((spec, idx) => {
+    const name = String(spec.name !== undefined ? spec.name : idx + 1);
+    const props = { label: name };
+    for (const key in spec) {
+      if (key === "name") continue;
+      if (!ALLOWED_STATE_KEYS.has(key)) { warnings.push(`state '${name}' has unknown key '${key}' (ignored)`); continue; }
+      props[key] = resolveRef(spec[key], states, `state '${name}', key '${key}'`);
+    }
+    states[name] = new State(g, props);
+  });
+  return states;
+}
+function filtered(spec, allowed) {
+  const o = {};
+  for (const k in spec) if (allowed.has(k)) o[k] = spec[k];
+  return o;
+}
+
+/* ---- path sampling for P-v / T-s diagrams ----------------------------- */
+function sampleProcess(proc, npts = 48) {
+  const b = proc.begin, f_ = proc.finish, g = b.gas, kind = proc.kind, out = [];
+  const lin = (a, c, t) => a + (c - a) * t;
+  for (let i = 0; i <= npts; i++) {
+    const t = i / npts;
+    try {
+      let st;
+      if (kind === "isochoric") st = new State(g, { v: b.v, T: lin(b.T, f_.T, t) });
+      else if (kind === "isobaric") st = new State(g, { p: b.p, T: lin(b.T, f_.T, t) });
+      else if (kind === "isothermal") st = new State(g, { T: b.T, v: b.v * Math.pow(f_.v / b.v, t) });
+      else if (kind === "isentropic") st = new State(g, { s: b.s, T: lin(b.T, f_.T, t) });
+      else if (kind === "polytropic" && proc.n !== null) {
+        const vi = b.v * Math.pow(f_.v / b.v, t);
+        st = new State(g, { p: b.p * Math.pow(b.v / vi, proc.n), v: vi });
+      } else { out.push([lin(b.v, f_.v, t), lin(b.p, f_.p, t), lin(b.T, f_.T, t), lin(b.s, f_.s, t)]); continue; }
+      out.push([st.v, st.p, st.T, st.s]);
+    } catch (err) {
+      out.push([lin(b.v, f_.v, t), lin(b.p, f_.p, t), lin(b.T, f_.T, t), lin(b.s, f_.s, t)]);
+    }
+  }
+  return out;
+}
+const curveFromSamples = (name, s) => ({ name, pv: s.map(r => [r[0], r[1]]), ts: s.map(r => [r[3], r[2]]) });
+
+/* ---- analyze: solve from TOML text, return report + plot data --------- */
+function analyze(text, source = "(input)") {
+  const doc = miniToml(text);
+  const mode = String(doc.mode || "closed").toLowerCase();
+  const g = buildGas(doc);
+  const warnings = [];
+
+  const L = ["=".repeat(66), `  PIG run :  ${source}   (mode = ${mode})`, "=".repeat(66), g.toString(), ""];
+
+  const states = buildStates(g, doc.state || [], warnings);
+  if (Object.keys(states).length === 0) throw new Error("No [[state]] tables found.");
+  for (const nm in states) { L.push(states[nm].report()); L.push(""); }
+
+  const curves = [], results = [];
+  if (mode === "closed") {
+    const procs = [];
+    for (const spec of (doc.process || [])) {
+      const b = String(spec.begin), fi = String(spec.finish);
+      procs.push(new Process(states[b], states[fi], filtered(spec, ALLOWED_PROC_KEYS)));
+    }
+    for (const p of procs) {
+      L.push(p.report()); L.push("");
+      const nm = p.name || `${p.begin.label}->${p.finish.label}`;
+      curves.push(curveFromSamples(nm, sampleProcess(p)));
+      results.push({ type: "process", name: nm, kind: p.kind, W: p.W, Q: p.Q,
+                     dU: p.dU, dS: p.dS, S_gen: p.S_gen });
+    }
+    if (doc.cycle && procs.length) {
+      const cyc = new Cycle(procs, String(doc.name || ""));
+      L.push(cyc.report());
+      results.push({ type: "cycle", W_net: cyc.W_net, Q_in: cyc.Q_in, Q_out: cyc.Q_out, eta_th: cyc.eta_th });
+    } else if (procs.length) {
+      L.push("-".repeat(50));
+      L.push(`  net W = ${procs.reduce((a, p) => a + p.W, 0).toFixed(4)} kJ   ` +
+             `net Q = ${procs.reduce((a, p) => a + p.Q, 0).toFixed(4)} kJ`);
+    }
+  } else if (mode === "open") {
+    for (const spec of (doc.device || [])) {
+      const i = String(spec.inlet), e = String(spec.exit);
+      const kw = filtered(spec, ALLOWED_DEV_KEYS);
+      const dev = new SteadyDevice(states[i], states[e], kw);
+      L.push(dev.report()); L.push("");
+      const si = states[i], se = states[e];
+      const nm = kw.name || `${i}->${e}`;
+      curves.push(curveFromSamples(nm, [[si.v, si.p, si.T, si.s], [se.v, se.p, se.T, se.s]]));
+      results.push({ type: "device", name: nm, Wdot: dev.Wdot, Qdot: dev.Qdot, dh: dev.dh, Sdot_gen: dev.Sdot_gen });
+    }
+  } else throw new Error(`mode must be 'closed' or 'open', not ${JSON.stringify(mode)}.`);
+
+  const stateList = [];
+  for (const nm in states) { const s = states[nm]; stateList.push({ name: nm, T: s.T, p: s.p, v: s.v, s: s.s }); }
+  return { mode, report: L.join("\n"), states: stateList, curves, results, warnings };
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = { PerfectGas, GASES, gas, State, Process, Cycle, SteadyDevice, analyze, miniToml, TREF, PREF };
+}
+
+</script>
+<script>
+/* ===== plot.js ===== */
+/* plot.js -- tiny dependency-free SVG line plotter for P-v and T-s diagrams.
+ * Draws axes, ticks, gridlines, one polyline per process, and labelled state
+ * markers. Supports linear or log scaling per axis. No external libraries. */
+"use strict";
+
+const PLOT_COLORS = ["#0b6bd6", "#d1495b", "#2a9d8f", "#e08a1e", "#7b4fb0", "#557"];
+const SVGNS = "http://www.w3.org/2000/svg";
+
+function el(name, attrs, text) {
+  const n = document.createElementNS(SVGNS, name);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (text !== undefined) n.textContent = text;
+  return n;
+}
+
+function niceTicks(lo, hi, count) {
+  if (!(hi > lo)) { hi = lo + 1; lo -= 1; }
+  const raw = (hi - lo) / Math.max(1, count);
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag;
+  const step = (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
+  const start = Math.ceil(lo / step) * step;
+  const ticks = [];
+  for (let v = start; v <= hi + step * 1e-6; v += step) ticks.push(v);
+  return ticks;
+}
+function decadeTicks(lo, hi) {
+  const ticks = [];
+  const a = Math.floor(Math.log10(lo)), b = Math.ceil(Math.log10(hi));
+  for (let e = a; e <= b; e++) ticks.push(Math.pow(10, e));
+  return ticks;
+}
+function fmtTick(v) {
+  if (v === 0) return "0";
+  const a = Math.abs(v);
+  if (a >= 1e4 || a < 1e-2) return v.toExponential(0).replace("e+", "e");
+  if (a >= 100) return v.toFixed(0);
+  if (a >= 1) return v.toFixed(2).replace(/\.?0+$/, "");
+  return v.toFixed(3).replace(/\.?0+$/, "");
+}
+
+/* opts: {series:[{name,pts:[[x,y]..]}], points:[{name,x,y}], xlabel, ylabel, logx, logy} */
+function drawPlot(svg, opts) {
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  const W = 440, H = 340, m = { l: 62, r: 14, t: 12, b: 46 };
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+
+  // gather extents (log axes ignore non-positive values)
+  let xs = [], ys = [];
+  const push = (x, y) => {
+    if (Number.isFinite(x) && (!opts.logx || x > 0)) xs.push(x);
+    if (Number.isFinite(y) && (!opts.logy || y > 0)) ys.push(y);
+  };
+  opts.series.forEach((s) => s.pts.forEach((p) => push(p[0], p[1])));
+  opts.points.forEach((p) => push(p.x, p.y));
+  if (!xs.length || !ys.length) { svg.appendChild(el("text", { x: W / 2, y: H / 2, "text-anchor": "middle", fill: "#889", "font-size": 13 }, "no data")); return; }
+
+  let xlo = Math.min(...xs), xhi = Math.max(...xs), ylo = Math.min(...ys), yhi = Math.max(...ys);
+  const padlin = (lo, hi) => { const d = (hi - lo) || Math.abs(hi) || 1; return [lo - 0.05 * d, hi + 0.05 * d]; };
+  if (!opts.logx) [xlo, xhi] = padlin(xlo, xhi); else { xlo *= 0.9; xhi *= 1.1; }
+  if (!opts.logy) [ylo, yhi] = padlin(ylo, yhi); else { ylo *= 0.9; yhi *= 1.1; }
+
+  const tx = (x) => opts.logx ? Math.log10(x) : x;
+  const ty = (y) => opts.logy ? Math.log10(y) : y;
+  const X0 = tx(xlo), X1 = tx(xhi), Y0 = ty(ylo), Y1 = ty(yhi);
+  const sx = (x) => m.l + (tx(x) - X0) / (X1 - X0) * iw;
+  const sy = (y) => m.t + ih - (ty(y) - Y0) / (Y1 - Y0) * ih;
+
+  // gridlines + ticks
+  const xticks = opts.logx ? decadeTicks(xlo, xhi) : niceTicks(xlo, xhi, 5);
+  const yticks = opts.logy ? decadeTicks(ylo, yhi) : niceTicks(ylo, yhi, 5);
+  xticks.forEach((t) => {
+    if (t < xlo || t > xhi) return;
+    const x = sx(t);
+    svg.appendChild(el("line", { x1: x, y1: m.t, x2: x, y2: m.t + ih, stroke: "#eef2f6", "stroke-width": 1 }));
+    svg.appendChild(el("text", { x, y: m.t + ih + 16, "text-anchor": "middle", fill: "#5c6b7a", "font-size": 11 }, fmtTick(t)));
+  });
+  yticks.forEach((t) => {
+    if (t < ylo || t > yhi) return;
+    const y = sy(t);
+    svg.appendChild(el("line", { x1: m.l, y1: y, x2: m.l + iw, y2: y, stroke: "#eef2f6", "stroke-width": 1 }));
+    svg.appendChild(el("text", { x: m.l - 8, y: y + 4, "text-anchor": "end", fill: "#5c6b7a", "font-size": 11 }, fmtTick(t)));
+  });
+
+  // axes box
+  svg.appendChild(el("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "none", stroke: "#c3ccd6", "stroke-width": 1 }));
+  svg.appendChild(el("text", { x: m.l + iw / 2, y: H - 8, "text-anchor": "middle", fill: "#1a2733", "font-size": 12 }, opts.xlabel));
+  svg.appendChild(el("text", { x: 14, y: m.t + ih / 2, "text-anchor": "middle", fill: "#1a2733", "font-size": 12, transform: `rotate(-90 14 ${m.t + ih / 2})` }, opts.ylabel));
+
+  // series polylines
+  opts.series.forEach((s, i) => {
+    const col = PLOT_COLORS[i % PLOT_COLORS.length];
+    const pts = s.pts.filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]) &&
+                                    (!opts.logx || p[0] > 0) && (!opts.logy || p[1] > 0));
+    if (pts.length > 1) svg.appendChild(el("polyline", {
+      points: pts.map((p) => `${sx(p[0]).toFixed(2)},${sy(p[1]).toFixed(2)}`).join(" "),
+      fill: "none", stroke: col, "stroke-width": 2, "stroke-linejoin": "round"
+    }));
+  });
+
+  // state markers + labels
+  opts.points.forEach((p) => {
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) return;
+    if ((opts.logx && p.x <= 0) || (opts.logy && p.y <= 0)) return;
+    const x = sx(p.x), y = sy(p.y);
+    svg.appendChild(el("circle", { cx: x, cy: y, r: 4, fill: "#0b6", stroke: "#fff", "stroke-width": 1 }));
+    svg.appendChild(el("text", { x: x + 6, y: y - 6, fill: "#1a2733", "font-size": 11, "font-weight": 600 }, p.name));
+  });
+
+  // legend (process names)
+  opts.series.forEach((s, i) => {
+    const col = PLOT_COLORS[i % PLOT_COLORS.length];
+    const ly = m.t + 4 + i * 15;
+    svg.appendChild(el("line", { x1: m.l + iw - 120, y1: ly, x2: m.l + iw - 104, y2: ly, stroke: col, "stroke-width": 3 }));
+    svg.appendChild(el("text", { x: m.l + iw - 100, y: ly + 4, fill: "#5c6b7a", "font-size": 10 }, s.name.slice(0, 20)));
+  });
+}
+
+</script>
+<script>
+/* ===== app_ui.js ===== */
+/* app_ui.js -- browser wiring. Uses analyze() from engine.js, drawPlot() from
+ * plot.js, and EXAMPLES injected by the build. No external requests. */
+"use strict";
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const sel = $("example"), box = $("toml"), btn = $("solve"),
+        status = $("status"), report = $("report"),
+        pv = $("pvPlot"), ts = $("tsPlot");
+  let last = null;
+
+  // populate examples dropdown
+  for (const name in EXAMPLES) {
+    const o = document.createElement("option");
+    o.value = name; o.textContent = name;
+    sel.appendChild(o);
+  }
+  sel.value = "otto";
+  box.value = EXAMPLES.otto;
+
+  sel.addEventListener("change", () => { if (EXAMPLES[sel.value]) { box.value = EXAMPLES[sel.value]; solve(); } });
+  btn.addEventListener("click", solve);
+  ["pv-logx", "pv-logy", "ts-logx", "ts-logy"].forEach((id) => $(id).addEventListener("change", redraw));
+
+  // copy buttons
+  $("copy-toml").addEventListener("click", (e) => copyText(box.value, e.currentTarget));
+  $("copy-report").addEventListener("click", (e) => copyText(report.textContent, e.currentTarget));
+  $("copy-pv").addEventListener("click", (e) => copyPlot(pv, "Pv-diagram.png", e.currentTarget));
+  $("copy-ts").addEventListener("click", (e) => copyPlot(ts, "Ts-diagram.png", e.currentTarget));
+
+  function flash(b, msg) {
+    const t = b.dataset.label || b.textContent;
+    b.dataset.label = t; b.textContent = msg; b.classList.add("ok");
+    setTimeout(() => { b.textContent = t; b.classList.remove("ok"); }, 1200);
+  }
+  async function copyText(text, b) {
+    try { await navigator.clipboard.writeText(text); flash(b, "Copied!"); }
+    catch (e) {
+      try {
+        const ta = document.createElement("textarea"); ta.value = text;
+        ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta);
+        ta.select(); document.execCommand("copy"); ta.remove(); flash(b, "Copied!");
+      } catch (_) { flash(b, "Ctrl+C"); }
+    }
+  }
+  function svgToPng(svg, scale) {
+    return new Promise((resolve, reject) => {
+      const vb = (svg.getAttribute("viewBox") || "0 0 440 340").split(/\s+/).map(Number);
+      const w = vb[2], h = vb[3];
+      const clone = svg.cloneNode(true);
+      clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      const xml = new XMLSerializer().serializeToString(clone);
+      const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement("canvas"); c.width = w * scale; c.height = h * scale;
+        const ctx = c.getContext("2d");
+        ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        c.toBlob((blob) => blob ? resolve(blob) : reject(new Error("toBlob failed")), "image/png");
+      };
+      img.onerror = () => reject(new Error("SVG render failed"));
+      img.src = url;
+    });
+  }
+  function downloadBlob(blob, name) {
+    const u = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = u; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 1000);
+  }
+  async function copyPlot(svg, name, b) {
+    let blob;
+    try { blob = await svgToPng(svg, 2); }
+    catch (e) { flash(b, "Failed"); return; }
+    try {
+      if (navigator.clipboard && window.ClipboardItem) {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        flash(b, "Copied!");
+      } else { downloadBlob(blob, name); flash(b, "Saved PNG"); }
+    } catch (e) { downloadBlob(blob, name); flash(b, "Saved PNG"); }
+  }
+
+  function solve() {
+    try {
+      const data = analyze(box.value, "(web)");
+      report.textContent = data.report;
+      last = {
+        pvSeries: data.curves.map((c) => ({ name: c.name, pts: c.pv })),
+        pvPoints: data.states.map((s) => ({ name: s.name, x: s.v, y: s.p })),
+        tsSeries: data.curves.map((c) => ({ name: c.name, pts: c.ts })),
+        tsPoints: data.states.map((s) => ({ name: s.name, x: s.s, y: s.T })),
+      };
+      redraw();
+      let msg = `${data.mode} mode, ${data.states.length} states, ${data.curves.length} process(es).`;
+      if (data.warnings && data.warnings.length) msg += "  warnings: " + data.warnings.join("; ");
+      status.textContent = msg;
+    } catch (err) {
+      const m = ("" + (err && err.message ? err.message : err));
+      report.textContent = "Problem with the input:\n\n" + m;
+      status.textContent = "Error (see report).";
+    }
+  }
+
+  function redraw() {
+    if (!last) return;
+    drawPlot(pv, { series: last.pvSeries, points: last.pvPoints,
+      xlabel: "v  (m³/kg)", ylabel: "p  (kPa)",
+      logx: $("pv-logx").checked, logy: $("pv-logy").checked });
+    drawPlot(ts, { series: last.tsSeries, points: last.tsPoints,
+      xlabel: "s  (kJ/kg·K)", ylabel: "T  (K)",
+      logx: $("ts-logx").checked, logy: $("ts-logy").checked });
+  }
+
+  solve();  // solve the default example on load
+})();
+
+</script>
+</body>
+</html>
