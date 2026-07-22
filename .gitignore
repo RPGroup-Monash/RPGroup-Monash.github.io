@@ -1,0 +1,8 @@
+.DS_Store
+# LaTeX build artifacts (keep method.tex + method.pdf)
+teaching/art-of-solving/*.aux
+teaching/art-of-solving/*.log
+teaching/art-of-solving/*.out
+teaching/art-of-solving/*.synctex.gz
+# proofing previews that must not ship
+teaching/art-of-solving/pg-*.png

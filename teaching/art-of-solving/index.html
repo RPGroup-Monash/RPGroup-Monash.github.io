@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Art of Solving Thermodynamics Problems — RP's Method</title>
+<meta name="description" content="A short video series and written companion on RP's method for planning and solving Perfect-Ideal-Gas thermodynamics problems. RPGroup, Monash University.">
+<style>
+  :root{
+    --red:#C82506; --ink:#1a1a1a; --muted:#5c5c5c; --line:#e6e6e6;
+    --blue:#1F5FBF; --bg:#ffffff; --soft:#faf7f6;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; color:var(--ink); background:var(--bg);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  .wrap{max-width:820px; margin:0 auto; padding:0 22px}
+  header{border-top:6px solid var(--red); padding:38px 0 8px}
+  .kicker{color:var(--red); font-weight:700; letter-spacing:.06em; text-transform:uppercase; font-size:13px; margin:0 0 8px}
+  h1{font-size:2.05rem; line-height:1.18; margin:.1em 0 .15em}
+  h1 .sub{display:block; font-size:1.15rem; color:var(--muted); font-weight:600; margin-top:8px}
+  .meta{color:var(--muted); font-size:.92rem; margin:14px 0 0}
+  .note{
+    background:var(--soft); border:1px solid var(--line); border-left:4px solid var(--red);
+    border-radius:8px; padding:16px 18px; margin:26px 0; font-size:.97rem;
+  }
+  .note strong{color:var(--red)}
+  h2{font-size:1.28rem; margin:40px 0 6px; padding-bottom:8px; border-bottom:2px solid var(--line)}
+  .lead{color:var(--muted); margin:.2em 0 1.2em}
+  .chapter{margin:30px 0 12px}
+  .chapter h3{font-size:1.1rem; margin:0 0 4px}
+  .chapter .cmeta{color:var(--muted); font-size:.9rem; margin:0 0 12px}
+  video{width:100%; border-radius:10px; background:#000; border:1px solid var(--line); display:block}
+  .links{margin:12px 0 0; padding:0; list-style:none; display:flex; flex-wrap:wrap; gap:10px}
+  .links a{
+    display:inline-block; text-decoration:none; color:var(--ink);
+    border:1px solid var(--line); border-radius:20px; padding:6px 14px; font-size:.9rem;
+    background:#fff; transition:border-color .15s, color .15s;
+  }
+  .links a:hover{border-color:var(--red); color:var(--red)}
+  .links a .ic{color:var(--red); font-weight:700}
+  .cta{
+    display:flex; gap:16px; flex-wrap:wrap; align-items:center;
+    background:var(--soft); border:1px solid var(--line); border-radius:10px; padding:18px 20px; margin:18px 0;
+  }
+  .cta .big{
+    text-decoration:none; background:var(--red); color:#fff; font-weight:600;
+    padding:11px 20px; border-radius:8px; font-size:1rem;
+  }
+  .cta .big:hover{background:#a81f05}
+  .cta .desc{color:var(--muted); font-size:.94rem; flex:1; min-width:220px}
+  ol.plan{padding-left:1.2em}
+  ol.plan li{margin:.3em 0}
+  footer{margin:56px 0 40px; padding-top:18px; border-top:1px solid var(--line); color:var(--muted); font-size:.88rem}
+  a{color:var(--red)}
+  code{background:#f3f0ef; padding:1px 5px; border-radius:4px; font-size:.9em}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <p class="kicker">RPGroup · Monash University</p>
+    <h1>The Art of Solving Thermodynamics Problems
+      <span class="sub">RP's method — a disciplined way to plan your attack</span></h1>
+    <p class="meta">A short video series with a written companion, for second-year Thermofluids.
+      Two chapters, about 20 minutes in total.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="note">
+    <strong>One method, not the method.</strong> This sets out <em>one</em> way to plan a
+    thermodynamics problem — the way I teach it. It is not the only correct way, and it
+    deliberately shares its foundations with the other worked examples in the unit: the same
+    first law, the same sign convention, the same distinction between state properties and
+    process variables, and the same discipline of stating assumptions before computing. What it
+    adds is a single organiser — the <strong>arrow diagram</strong> — that makes the plan
+    visible before any number is worked. Use whichever method lets you plan clearly; if this one
+    helps, take it. — <em>RP</em>
+  </div>
+
+  <div class="cta">
+    <a class="big" href="method.pdf">Read the method (PDF)</a>
+    <span class="desc">The whole method in four pages, worked through one example end to end.
+      Reads on its own — you do not have to watch the videos first.</span>
+  </div>
+
+  <h2>The videos</h2>
+  <p class="lead">Watch in order. Chapter 1 is the <em>why</em>; Chapter 2 is the method, worked
+    live on a real problem.</p>
+
+  <div class="chapter">
+    <h3>1 · Why — thermodynamics as a problem-solving dojo</h3>
+    <p class="cmeta">Why planning is about 80% of the work, and why this subject is a good place to learn it.</p>
+    <video controls preload="metadata" poster="" src="media/01-why_video.mp4"></video>
+    <ul class="links">
+      <li><a href="media/01-why_video.mp4"><span class="ic">▷</span> Video (MP4)</a></li>
+      <li><a href="slides/01-why_slides.pdf"><span class="ic">▤</span> Slides (PDF)</a></li>
+      <li><a href="transcripts/01-why_transcript.pdf"><span class="ic">¶</span> Transcript (PDF)</a></li>
+    </ul>
+  </div>
+
+  <div class="chapter">
+    <h3>2 · How to plan your attack</h3>
+    <p class="cmeta">The five buckets, the arrow diagram, and the two-stage plan — carried through a full worked example.</p>
+    <video controls preload="metadata" poster="" src="media/02-how-to-plan_video.mp4"></video>
+    <ul class="links">
+      <li><a href="media/02-how-to-plan_video.mp4"><span class="ic">▷</span> Video (MP4)</a></li>
+      <li><a href="slides/02-how-to-plan_slides.pdf"><span class="ic">▤</span> Slides (PDF)</a></li>
+      <li><a href="transcripts/02-how-to-plan_transcript.pdf"><span class="ic">¶</span> Transcript (PDF)</a></li>
+    </ul>
+  </div>
+
+  <h2>The plan, in one line</h2>
+  <p class="lead">Everything below is on the worksheet, before a single number is computed.</p>
+  <ol class="plan">
+    <li>Identify the ideal gas (Step 0) and its constants from Table A-2.</li>
+    <li>Find the states and the processes between them.</li>
+    <li>Draw the arrow diagram — where each property comes from: given, process, or equation of state.</li>
+    <li>Sketch the P–v diagram the topology implies.</li>
+    <li>Stage 1 — fix <code>P</code>, <code>v</code>, <code>T</code> at every state.</li>
+    <li>Stage 2 — internal-energy change, work and heat for every process.</li>
+    <li>Finish — sum the legs, keeping their signs.</li>
+  </ol>
+
+  <footer>
+    <p>The Art of Solving Thermodynamics Problems · RP's method ·
+      <a href="https://rpgroup-monash.github.io/">RPGroup, Monash University</a>.
+      Videos, slides and transcripts on this page may be shared freely for teaching and study.</p>
+  </footer>
+
+</main>
+</body>
+</html>
