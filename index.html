@@ -1,52 +1,190 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RPGroup · Monash University</title>
-<meta name="description" content="Research group of Prabhakar Ranganathan, Monash University — multiscale modelling of the rheology and fluid mechanics of complex fluids, and teaching resources.">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CReSI Lab — Computational Rheology for Sustainable Industry</title>
+<meta name="description" content="The CReSI Lab at Monash University builds full-stack, multiscale models of the rheology and fluid mechanics of complex fluids." />
 <style>
-  :root{--red:#C82506;--ink:#1a1a1a;--muted:#5c5c5c;--line:#e6e6e6;--soft:#faf7f6}
+  :root{
+    --ink:#1a1c1e; --muted:#5b6469; --line:#e5e2dc;
+    --bg:#faf9f6; --panel:#ffffff; --accent:#12586b; --accent-soft:#e7f0f2;
+    --maxw:920px;
+  }
   *{box-sizing:border-box}
-  body{margin:0;color:var(--ink);background:#fff;
-    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-  .wrap{max-width:760px;margin:0 auto;padding:0 22px}
-  header{border-top:6px solid var(--red);padding:44px 0 8px}
-  .kicker{color:var(--red);font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:13px;margin:0 0 8px}
-  h1{font-size:2rem;margin:.1em 0 .2em}
-  .lead{color:var(--muted);font-size:1.05rem;margin:.2em 0 1.4em}
-  h2{font-size:1.25rem;margin:38px 0 6px;padding-bottom:8px;border-bottom:2px solid var(--line)}
-  .card{display:block;text-decoration:none;color:inherit;border:1px solid var(--line);
-    border-left:4px solid var(--red);border-radius:9px;padding:16px 18px;margin:16px 0;
-    transition:border-color .15s,box-shadow .15s}
-  .card:hover{box-shadow:0 2px 12px rgba(0,0,0,.06)}
-  .card h3{margin:0 0 4px;font-size:1.08rem;color:var(--red)}
-  .card p{margin:0;color:var(--muted);font-size:.95rem}
-  footer{margin:56px 0 40px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:.88rem}
-  a{color:var(--red)}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:400 17px/1.65 "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 24px}
+  a{color:var(--accent); text-decoration:none}
+  a:hover{text-decoration:underline}
+  h1,h2,h3{line-height:1.2; letter-spacing:-0.01em}
+  h2{font-size:1.5rem; margin:0 0 .6rem}
+
+  /* Header / hero */
+  header.hero{
+    background:linear-gradient(160deg,#0f4a5a 0%,#12586b 55%,#1c6e7f 100%);
+    color:#fff; padding:76px 0 60px;
+  }
+  .hero .kicker{font:600 .8rem/1 ui-sans-serif,system-ui,sans-serif; letter-spacing:.18em; text-transform:uppercase; opacity:.8}
+  .hero h1{font-size:3.1rem; margin:.4rem 0 .2rem; font-weight:600}
+  .hero .full{font-size:1.15rem; opacity:.92; font-style:italic; margin:.2rem 0 1.1rem}
+  .hero p.lede{font-size:1.15rem; max-width:640px; margin:0; opacity:.96}
+  .hero .affil{margin-top:1.2rem; font:600 .82rem/1 ui-sans-serif,system-ui,sans-serif; letter-spacing:.04em; opacity:.85}
+
+  /* Nav */
+  nav.top{border-bottom:1px solid var(--line); background:var(--panel); position:sticky; top:0; z-index:10}
+  nav.top .wrap{display:flex; gap:26px; align-items:center; height:52px; font:600 .82rem/1 ui-sans-serif,system-ui,sans-serif; letter-spacing:.06em; text-transform:uppercase}
+  nav.top a{color:var(--muted)}
+  nav.top a:hover{color:var(--accent); text-decoration:none}
+  nav.top .brand{color:var(--ink); margin-right:auto; letter-spacing:.02em}
+
+  section{padding:52px 0; border-bottom:1px solid var(--line)}
+  section:last-of-type{border-bottom:none}
+  .eyebrow{font:600 .78rem/1 ui-sans-serif,system-ui,sans-serif; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); margin-bottom:.7rem}
+  p{margin:0 0 1rem}
+  .lead{font-size:1.12rem}
+
+  .themes{display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:8px}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:20px 22px}
+  .card h3{font-size:1.08rem; margin:0 0 .35rem}
+  .card p{font-size:.98rem; color:var(--muted); margin:0}
+
+  .people{display:flex; flex-direction:column; gap:14px; margin-top:6px}
+  .person{display:flex; gap:16px; align-items:baseline; padding:14px 0; border-bottom:1px dashed var(--line)}
+  .person:last-child{border-bottom:none}
+  .person .name{font-weight:600; min-width:210px}
+  .person .role{color:var(--muted); font-size:.98rem}
+
+  .event{display:flex; gap:18px; align-items:flex-start; background:var(--accent-soft); border:1px solid #cfe0e3; border-radius:12px; padding:20px 22px}
+  .event .yr{font:700 1.5rem/1 ui-sans-serif,system-ui,sans-serif; color:var(--accent)}
+  .event h3{margin:0 0 .25rem; font-size:1.12rem}
+  .event p{margin:0; color:var(--muted); font-size:.98rem}
+  .event .go{display:inline-block; margin-top:.5rem; font:600 .9rem ui-sans-serif,system-ui,sans-serif}
+
+  .contact a{font-weight:600}
+  footer{padding:30px 0 44px; color:var(--muted); font:400 .9rem ui-sans-serif,system-ui,sans-serif}
+  footer .wrap{display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px}
+
+  @media(max-width:680px){
+    .hero h1{font-size:2.3rem}
+    .themes{grid-template-columns:1fr}
+    nav.top .wrap{gap:16px; overflow-x:auto}
+    .person{flex-direction:column; gap:2px}
+    .person .name{min-width:0}
+  }
 </style>
 </head>
 <body>
-<header>
+
+<header class="hero">
   <div class="wrap">
-    <p class="kicker">Monash University</p>
-    <h1>RPGroup</h1>
-    <p class="lead">Prabhakar Ranganathan and group — multiscale modelling of the rheology and
-      fluid mechanics of complex fluids, and teaching in thermofluids.</p>
+    <div class="kicker">Monash University</div>
+    <h1>CReSI Lab</h1>
+    <div class="full">Computational Rheology for Sustainable Industry</div>
+    <p class="lede">Full-stack, multiscale modelling of the rheology and fluid mechanics of complex fluids.</p>
+    <div class="affil">Department of Mechanical &amp; Aerospace Engineering · Monash University</div>
   </div>
 </header>
 
-<main class="wrap">
-  <h2>Teaching resources</h2>
-  <a class="card" href="teaching/art-of-solving/">
-    <h3>The Art of Solving Thermodynamics Problems →</h3>
-    <p>A short video series and written companion on RP's method for planning and solving
-      Perfect-Ideal-Gas problems.</p>
-  </a>
+<nav class="top">
+  <div class="wrap">
+    <span class="brand">CReSI Lab</span>
+    <a href="#about">About</a>
+    <a href="#research">Research</a>
+    <a href="#people">People</a>
+    <a href="#meetings">Meetings</a>
+    <a href="#contact">Contact</a>
+  </div>
+</nav>
 
-  <footer>
-    <p>© RPGroup, Monash University. Built with GitHub Pages.</p>
-  </footer>
-</main>
+<section id="about">
+  <div class="wrap">
+    <div class="eyebrow">What we do</div>
+    <h2>Predicting the flow of complex fluids, from the microstructure up</h2>
+    <p class="lead">Complex fluids — polymer solutions, suspensions, slurries, sprays — are everywhere in industry and notoriously hard to predict. Their flow behaviour emerges from a strong two-way coupling between the macroscopic flow and an evolving microstructure, spanning an enormous range of length and time scales.</p>
+    <p>The CReSI Lab builds models across that whole stack, from the molecular and particle scale up to the continuum flow. Our aim is a <em>full-stack</em> description that connects micromechanics to macroscopic rheology and to process-scale flows, so that the design of sustainable industrial processes for handling complex fluids can rest on predictive computation rather than empiricism. We approach constitutive modelling and non-equilibrium thermodynamics through an information-theoretic lens.</p>
+  </div>
+</section>
+
+<section id="research">
+  <div class="wrap">
+    <div class="eyebrow">Research</div>
+    <h2>Themes</h2>
+    <div class="themes">
+      <div class="card">
+        <h3>Constitutive modelling</h3>
+        <p>Tensorial, thixo-elasto-visco-plastic models that capture the coupling between flow and microstructure in viscoelastic and yield-stress fluids.</p>
+      </div>
+      <div class="card">
+        <h3>Microscale simulation</h3>
+        <p>Brownian dynamics of polymers and suspensions, from single molecules to concentrated systems, resolving the physics that sets the rheology.</p>
+      </div>
+      <div class="card">
+        <h3>Free-surface &amp; filament flows</h3>
+        <p>Extensional rheology, liquid bridges, and the stretching and breakup of complex-fluid filaments.</p>
+      </div>
+      <div class="card">
+        <h3>Active matter</h3>
+        <p>The rheology and continuum description of self-propelled particles and active suspensions.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="people">
+  <div class="wrap">
+    <div class="eyebrow">People</div>
+    <h2>The group</h2>
+    <div class="people">
+      <div class="person">
+        <div class="name">Prabhakar Ranganathan</div>
+        <div class="role">Principal Investigator · Senior Lecturer, Mechanical &amp; Aerospace Engineering, Monash University</div>
+      </div>
+      <div class="person">
+        <div class="name">Aditya Ganesh</div>
+        <div class="role">PhD researcher · Extensional-flow dynamics of ring and linear polymers</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="meetings">
+  <div class="wrap">
+    <div class="eyebrow">Meetings &amp; events</div>
+    <h2>Hosted meetings</h2>
+    <div class="event">
+      <div class="yr">2025</div>
+      <div>
+        <h3>S4F — Structure, Stress and Strain in Stretching Flows</h3>
+        <p>A workshop bringing together leaders in the field to bridge mesoscale simulation and macroscopic modelling of complex fluids. Monash University Prato Centre, Italy · 18–20 June 2025.</p>
+        <a class="go" href="meetings/S4F-2025/">Visit the S4F&nbsp;2025 site →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="contact" class="contact">
+  <div class="wrap">
+    <div class="eyebrow">Contact</div>
+    <h2>Get in touch</h2>
+    <p>Enquiries, including from prospective students and collaborators, are welcome.</p>
+    <p>
+      Email: <a href="mailto:prabhakar.ranganathan@monash.edu">prabhakar.ranganathan@monash.edu</a><br>
+      Department: <a href="https://www.monash.edu/engineering/departments/mechanical/">Mechanical &amp; Aerospace Engineering, Monash University</a>
+    </p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 CReSI Lab · Monash University</span>
+    <span>Crazy about CReSI :)</span>
+  </div>
+</footer>
+
 </body>
 </html>
