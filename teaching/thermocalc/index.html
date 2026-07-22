@@ -30,6 +30,13 @@ pre#report { background:#0f1720; color:#d7e2ec; border-radius:8px; padding:12px;
 .toggles label { display:inline; margin-right:12px; color:var(--muted); }
 svg.plot { width:100%; height:auto; background:#fff; border:1px solid var(--line); border-radius:6px; }
 .note { font-size:12px; color:var(--muted); margin-top:8px; }
+.phead { display:flex; justify-content:space-between; align-items:center; margin-top:10px; }
+.phead label, .phead h3 { margin:0; }
+.plotcard .phead { margin-top:0; margin-bottom:6px; }
+.copybtn { font-family:inherit; font-size:12px; background:#eef2f6; color:#33475b; border:1px solid var(--line);
+  border-radius:5px; padding:3px 10px; cursor:pointer; }
+.copybtn:hover { background:#e2e8ee; }
+.copybtn.ok { background:var(--accent); color:#fff; border-color:var(--accent); }
 </style>
 </head>
 <body>
@@ -41,7 +48,7 @@ svg.plot { width:100%; height:auto; background:#fff; border:1px solid var(--line
   <section class="panel">
     <label for="example">Example</label>
     <select id="example"><option value="">— choose an example —</option></select>
-    <label for="toml" style="margin-top:10px">Problem (TOML)</label>
+    <div class="phead"><label for="toml">Problem (TOML)</label><button class="copybtn" id="copy-toml" type="button">Copy</button></div>
     <textarea id="toml" spellcheck="false"></textarea>
     <div class="row">
       <button id="solve" class="solve">Solve</button>
@@ -52,7 +59,7 @@ svg.plot { width:100%; height:auto; background:#fff; border:1px solid var(--line
     <div class="panel">
       <div class="plots">
         <div class="plotcard">
-          <h3>P–v diagram</h3>
+          <div class="phead"><h3>P–v diagram</h3><button class="copybtn" id="copy-pv" type="button">Copy PNG</button></div>
           <div class="toggles">
             <label><input type="checkbox" id="pv-logx"> log v</label>
             <label><input type="checkbox" id="pv-logy"> log p</label>
@@ -60,7 +67,7 @@ svg.plot { width:100%; height:auto; background:#fff; border:1px solid var(--line
           <svg id="pvPlot" class="plot"></svg>
         </div>
         <div class="plotcard">
-          <h3>T–s diagram</h3>
+          <div class="phead"><h3>T–s diagram</h3><button class="copybtn" id="copy-ts" type="button">Copy PNG</button></div>
           <div class="toggles">
             <label><input type="checkbox" id="ts-logx"> log s</label>
             <label><input type="checkbox" id="ts-logy"> log T</label>
@@ -72,7 +79,7 @@ svg.plot { width:100%; height:auto; background:#fff; border:1px solid var(--line
         a log axis on s then hides points. Log scale on p, v and T is always safe.</div>
     </div>
     <div class="panel">
-      <label>Report</label>
+      <div class="phead"><label>Report</label><button class="copybtn" id="copy-report" type="button">Copy</button></div>
       <pre id="report">Solve a problem to see the full worked report here.</pre>
     </div>
   </section>
@@ -708,6 +715,65 @@ function drawPlot(svg, opts) {
   sel.addEventListener("change", () => { if (EXAMPLES[sel.value]) { box.value = EXAMPLES[sel.value]; solve(); } });
   btn.addEventListener("click", solve);
   ["pv-logx", "pv-logy", "ts-logx", "ts-logy"].forEach((id) => $(id).addEventListener("change", redraw));
+
+  // copy buttons
+  $("copy-toml").addEventListener("click", (e) => copyText(box.value, e.currentTarget));
+  $("copy-report").addEventListener("click", (e) => copyText(report.textContent, e.currentTarget));
+  $("copy-pv").addEventListener("click", (e) => copyPlot(pv, "Pv-diagram.png", e.currentTarget));
+  $("copy-ts").addEventListener("click", (e) => copyPlot(ts, "Ts-diagram.png", e.currentTarget));
+
+  function flash(b, msg) {
+    const t = b.dataset.label || b.textContent;
+    b.dataset.label = t; b.textContent = msg; b.classList.add("ok");
+    setTimeout(() => { b.textContent = t; b.classList.remove("ok"); }, 1200);
+  }
+  async function copyText(text, b) {
+    try { await navigator.clipboard.writeText(text); flash(b, "Copied!"); }
+    catch (e) {
+      try {
+        const ta = document.createElement("textarea"); ta.value = text;
+        ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta);
+        ta.select(); document.execCommand("copy"); ta.remove(); flash(b, "Copied!");
+      } catch (_) { flash(b, "Ctrl+C"); }
+    }
+  }
+  function svgToPng(svg, scale) {
+    return new Promise((resolve, reject) => {
+      const vb = (svg.getAttribute("viewBox") || "0 0 440 340").split(/\s+/).map(Number);
+      const w = vb[2], h = vb[3];
+      const clone = svg.cloneNode(true);
+      clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      const xml = new XMLSerializer().serializeToString(clone);
+      const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement("canvas"); c.width = w * scale; c.height = h * scale;
+        const ctx = c.getContext("2d");
+        ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        c.toBlob((blob) => blob ? resolve(blob) : reject(new Error("toBlob failed")), "image/png");
+      };
+      img.onerror = () => reject(new Error("SVG render failed"));
+      img.src = url;
+    });
+  }
+  function downloadBlob(blob, name) {
+    const u = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = u; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 1000);
+  }
+  async function copyPlot(svg, name, b) {
+    let blob;
+    try { blob = await svgToPng(svg, 2); }
+    catch (e) { flash(b, "Failed"); return; }
+    try {
+      if (navigator.clipboard && window.ClipboardItem) {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        flash(b, "Copied!");
+      } else { downloadBlob(blob, name); flash(b, "Saved PNG"); }
+    } catch (e) { downloadBlob(blob, name); flash(b, "Saved PNG"); }
+  }
 
   function solve() {
     try {
